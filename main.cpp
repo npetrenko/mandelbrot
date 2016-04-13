@@ -238,7 +238,11 @@ int main(int argc, const char * argv[]) {
             delete [] dot[i];
         }
         delete [] dot;
+        
         input = "u";
+        if(oneshot){
+            input = "exit";
+        }
     }
 }
 

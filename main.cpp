@@ -47,7 +47,7 @@ int main(int argc, const char * argv[]) {
     resolution = 500;
     sxc = -0;
     syc = -0;
-    threadnum = 4;
+    threadnum = 1;
     res = 100;
     for (int i=0; i<argc; i++) {
         if (strcmp(argv[i], "-sxc") == 0) {
@@ -67,7 +67,7 @@ int main(int argc, const char * argv[]) {
             hsize = vsize;
         }
         if (strcmp(argv[i], "-fnum") == 0) {
-            floc = "/Users/nikitapetrenko/fractals/" + to_string(atoi(argv[i+1])) + ".ppm";
+            floc = "mandelbrot.ppm";
         }
         if (strcmp(argv[i], "-oneshot") == 0) {
             oneshot = 1;

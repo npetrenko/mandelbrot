@@ -67,7 +67,7 @@ int main(int argc, const char * argv[]) {
             hsize = vsize;
         }
         if (strcmp(argv[i], "-fnum") == 0) {
-            floc = "/Users/nikitapetrenko/fractals/" + to_string(atoi(argv[i+1])) + ".ppm";
+            floc = "mandelbrot.ppm";
         }
         if (strcmp(argv[i], "-oneshot") == 0) {
             oneshot = 1;

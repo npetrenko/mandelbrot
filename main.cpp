@@ -208,7 +208,9 @@ int main(int argc, const char * argv[]) {
             for (long unsigned int j = 0; j < resolution; j++)
             {
                 static unsigned char color[3];
-                
+                if(dot[i][j]==-1){
+                    dot[i][j]=depth-1;
+                }
                 rcol = rcolor(dot[i][j]);
                 /*
                 if(dot[i][j] == -1) {
@@ -377,7 +379,7 @@ unsigned int* rcolor (long unsigned int j) {
     r[0][2] = 0;
     
     r[1][0] = 0;
-    r[1][1] = 255;
+    r[1][1] = 0;
     r[1][2] = 255;
     /*
     r[1][0] = 255;
@@ -423,13 +425,15 @@ unsigned int* rcolor (long unsigned int j) {
             }
         }
     }
-    /*
+    
     for(int i=0; i<3; i++) {
         rtrn[i] = int( (r[pl][i]*(j-distrib[pl])/(distrib[pl+1]-distrib[pl])) + (r[pl+1][i]*(distrib[pl+1] - j)/(distrib[pl+1]-distrib[pl])) );
     }
-     */
-    for(int i=0; i<3; i++) {
+    
+    /*
+	for(int i=0; i<3; i++) {
         rtrn[i] = int( (r[pl][i]*(distrib[pl+1] - j)/(distrib[pl+1]-distrib[pl])) + (r[pl+1][i]*(j-distrib[pl])/(distrib[pl+1]-distrib[pl])) );
     }
+	*/
     return rtrn;
 }

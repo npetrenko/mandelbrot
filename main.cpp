@@ -35,12 +35,13 @@ int threadnum;
 pthread_mutex_t mut;
 bool * tbcalc;
 int partsnum;
+string floc;
 
 int main(int argc, const char * argv[]) {
     string input = "u";
-    string floc;
+    
     bool oneshot = 0;
-    unsigned int* rcol = new unsigned int [3];
+    
     depth = 100;
     hsize = 4;
     vsize = 4;
@@ -189,51 +190,23 @@ int main(int argc, const char * argv[]) {
             thread_spoints[i] = syc - vsize/2 + (i*vsize)/partsnum;
 
         }
+        
+
+
+        
+
         for (int i =0; i<threadnum; i++) {
             pthread_create(&thread[i], NULL, distributed_calc, (void *) i);
         }
-        cout << "waiting for other threads" << endl;
+        
         for (int i=0; i<threadnum; i++) {
             pthread_join(thread[i],NULL);
         }
         cout << "All threads finished" << endl;
         cout << floc;
-
-
-        FILE *fp = fopen(floc.c_str(), "wb");
-        (void) fprintf(fp, "P6\n%d %d\n255\n", resolution, resolution);
-
-        for (long unsigned int i = 0; i < resolution; i++)
-        {
-            for (long unsigned int j = 0; j < resolution; j++)
-            {
-                static unsigned char color[3];
-                if(dot[i][j]==-1){
-                    dot[i][j]=depth-1;
-                }
-                rcol = rcolor(dot[i][j]);
-                /*
-                if(dot[i][j] == -1) {
-                    rcol[0] = 0;
-                    rcol[1] = 0;
-                    rcol[2] = 0;
-                } else {
-                    rcol[0] = 255;
-                    rcol[1] = 255;
-                    rcol[2] = 255;
-                }
-                 */
-                color[0] = rcol[0];
-                color[1] = rcol[1];
-                color[2] = rcol[2];
-                //255*cos((((dot[i][j]*1.0)/50)*((dot[i][j]*1.0)/50))*(3.14/2))
-                (void) fwrite(color, 1, 3, fp);
-            }
-            if (i == resolution - 1) {
-                cout << endl << "Finished" << endl;
-            }
-        }
-        (void) fclose(fp);
+        
+        
+        
 
 
         for( long int i=0; i< resolution; i++) {
@@ -249,7 +222,10 @@ int main(int argc, const char * argv[]) {
 }
 
 void *distributed_calc (void * arg) {
+    FILE *fp = fopen(floc.c_str(), "wb");
+    (void) fprintf(fp, "P6\n%d %d\n255\n", resolution, resolution);
     long double* coord;
+    unsigned int* rcol = new unsigned int [3];
     long unsigned int spoint;
     int tnum = 0;
     choose_sector:
@@ -299,9 +275,42 @@ void *distributed_calc (void * arg) {
 
 
     }
+    
+    for (long unsigned int i=spoint; i<thread_distribution[tnum]; i++)
+    {
+        for (long unsigned int j = 0; j < resolution; j++)
+        {
+            static unsigned char color[3];
+            if(dot[i][j]==-1){
+                dot[i][j]=depth-1;
+            }
+            rcol = rcolor(dot[i][j]);
+            /*
+             if(dot[i][j] == -1) {
+             rcol[0] = 0;
+             rcol[1] = 0;
+             rcol[2] = 0;
+             } else {
+             rcol[0] = 255;
+             rcol[1] = 255;
+             rcol[2] = 255;
+             }
+             */
+            color[0] = rcol[0];
+            color[1] = rcol[1];
+            color[2] = rcol[2];
+            //255*cos((((dot[i][j]*1.0)/50)*((dot[i][j]*1.0)/50))*(3.14/2))
+            (void) fwrite(color, 1, 3, fp);
+        }
+        if (i == resolution - 1) {
+            cout << endl << "Finished" << endl;
+        }
+    }
+    
     delete [] coord;
     goto choose_sector;
     finish:
+    (void) fclose(fp);
     pthread_mutex_unlock(&mut);
 }
 

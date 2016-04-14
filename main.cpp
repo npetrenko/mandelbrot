@@ -79,13 +79,15 @@ int main(int argc, const char * argv[]) {
     }
 
     pthread_t thread[threadnum];
-    partsnum = 100;
+    partsnum = 10000;
 
 
     thread_distribution = new long unsigned int [partsnum];
     thread_spoints = new long double [partsnum];
     tbcalc = new bool [partsnum];
-
+    for (int i =0; i<partsnum; i++) {
+        tbcalc[i] = 0;
+    }
     input = "calc";
     while (input != "exit") {
         while (input != "calc") {
@@ -181,14 +183,11 @@ int main(int argc, const char * argv[]) {
 
         }
 
-        dot = new long int * [resolution];
-        for(long unsigned int i=0; i< resolution; i++){
-            dot[i] = new long int [resolution];
-        }
+        dot = new long int * [int(resolution/partsnum)];
+        cout << "size of dor is " << int(resolution/partsnum) << endl;
         for (int i=0; i<partsnum; i++) {
             thread_distribution[i] = int(((i+1)*resolution)/(partsnum));
             thread_spoints[i] = syc - vsize/2 + (i*vsize)/partsnum;
-
         }
         
 
@@ -209,9 +208,6 @@ int main(int argc, const char * argv[]) {
         
 
 
-        for( long int i=0; i< resolution; i++) {
-            delete [] dot[i];
-        }
         delete [] dot;
         
         input = "u";
@@ -225,7 +221,7 @@ void *distributed_calc (void * arg) {
     FILE *fp = fopen(floc.c_str(), "wb");
     (void) fprintf(fp, "P6\n%d %d\n255\n", resolution, resolution);
     long double* coord;
-    unsigned int* rcol = new unsigned int [3];
+    unsigned int* rcol;
     long unsigned int spoint;
     int tnum = 0;
     choose_sector:
@@ -254,13 +250,16 @@ void *distributed_calc (void * arg) {
     }
 
 
-
+    for(long unsigned int i=spoint; i<thread_distribution[tnum]; i++){
+        dot[i-spoint] = new long int [resolution];
+    }
+    
     for (long unsigned int i=spoint; i<thread_distribution[tnum]; i++){
 
         for (long unsigned int j=0; j<resolution; j++){
 
 
-            dot[i][j] = check_iterations(coord, depth);
+            dot[i-spoint][j] = check_iterations(coord, depth);
 
 
             coord[0] += vsize/resolution;
@@ -281,10 +280,10 @@ void *distributed_calc (void * arg) {
         for (long unsigned int j = 0; j < resolution; j++)
         {
             static unsigned char color[3];
-            if(dot[i][j]==-1){
-                dot[i][j]=depth-1;
+            if(dot[i-spoint][j]==-1){
+                dot[i-spoint][j]=depth-1;
             }
-            rcol = rcolor(dot[i][j]);
+            rcol = rcolor(dot[i-spoint][j]);
             /*
              if(dot[i][j] == -1) {
              rcol[0] = 0;
@@ -301,15 +300,18 @@ void *distributed_calc (void * arg) {
             color[2] = rcol[2];
             //255*cos((((dot[i][j]*1.0)/50)*((dot[i][j]*1.0)/50))*(3.14/2))
             (void) fwrite(color, 1, 3, fp);
+            delete [] rcol;
         }
+        delete [] dot[i-spoint];
         if (i == resolution - 1) {
             cout << endl << "Finished" << endl;
         }
     }
-    
+ 
     delete [] coord;
     goto choose_sector;
     finish:
+    
     (void) fclose(fp);
     pthread_mutex_unlock(&mut);
 }
@@ -444,5 +446,10 @@ unsigned int* rcolor (long unsigned int j) {
         rtrn[i] = int( (r[pl][i]*(distrib[pl+1] - j)/(distrib[pl+1]-distrib[pl])) + (r[pl+1][i]*(j-distrib[pl])/(distrib[pl+1]-distrib[pl])) );
     }
 	*/
+    for (int i=0; i<cnum; i++) {
+        delete [] r[i];
+    }
+    delete [] distrib;
+    delete [] r;
     return rtrn;
 }

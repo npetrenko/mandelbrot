@@ -48,7 +48,7 @@ int main(int argc, const char * argv[]) {
     resolution = 500;
     sxc = -0;
     syc = -0;
-    threadnum = 4;
+    threadnum = 1;
     res = 100;
     for (int i=0; i<argc; i++) {
         if (strcmp(argv[i], "-sxc") == 0) {
@@ -73,9 +73,11 @@ int main(int argc, const char * argv[]) {
         if (strcmp(argv[i], "-oneshot") == 0) {
             oneshot = 1;
         }
+        /*
         if (strcmp(argv[i], "-threadnum") == 0) {
             threadnum = atoi(argv[i+1]);
         }
+         */
     }
 
     pthread_t thread[threadnum];

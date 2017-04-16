@@ -8,6 +8,17 @@
 #include <cstring>
 #include <iomanip>
 #include <pthread.h>
+#include <time.h>
+#include <sys/time.h>
+
+double get_wall_time(){
+    struct timeval time;
+    if (gettimeofday(&time,NULL)){
+        //  Handle error
+        return 0;
+    }
+    return (double)time.tv_sec + (double)time.tv_usec * .000001;
+}
 
 
 
@@ -21,7 +32,6 @@ unsigned int* rcolor (long unsigned int j);
 
 void *distributed_calc (void * arg);
 
-long unsigned int res;
 long int** dot;
 long int depth;
 long unsigned int resolution;
@@ -35,21 +45,20 @@ int threadnum;
 pthread_mutex_t mut;
 bool * tbcalc;
 int partsnum;
-string floc;
 
 int main(int argc, const char * argv[]) {
     string input = "u";
-    
+    string floc;
     bool oneshot = 0;
-    
+    unsigned int* rcol = new unsigned int [3];
     depth = 100;
     hsize = 4;
     vsize = 4;
     resolution = 500;
     sxc = -0;
     syc = -0;
-    threadnum = 1;
-    res = 100;
+    threadnum = 8;
+
     for (int i=0; i<argc; i++) {
         if (strcmp(argv[i], "-sxc") == 0) {
             sxc = atof(argv[i+1]);
@@ -68,28 +77,24 @@ int main(int argc, const char * argv[]) {
             hsize = vsize;
         }
         if (strcmp(argv[i], "-fnum") == 0) {
-            floc = "mandelbrot.ppm";
+            floc = "/home/nikita/fractals/" + to_string(atoi(argv[i+1])) + ".ppm";
         }
         if (strcmp(argv[i], "-oneshot") == 0) {
             oneshot = 1;
         }
-        /*
         if (strcmp(argv[i], "-threadnum") == 0) {
             threadnum = atoi(argv[i+1]);
         }
-         */
     }
 
     pthread_t thread[threadnum];
-    partsnum = 10000;
+    partsnum = 80;
 
 
     thread_distribution = new long unsigned int [partsnum];
     thread_spoints = new long double [partsnum];
     tbcalc = new bool [partsnum];
-    for (int i =0; i<partsnum; i++) {
-        tbcalc[i] = 0;
-    }
+
     input = "calc";
     while (input != "exit") {
         while (input != "calc") {
@@ -165,9 +170,6 @@ int main(int argc, const char * argv[]) {
             if(input == "setd"){
                 cin >> depth;
             }
-            if(input == "setres"){
-                cin >> res;
-            }
             if(input == "pp"){
                 cout << endl << "///////////////////////";
                 cout << endl <<"resolution:" << endl;
@@ -185,45 +187,65 @@ int main(int argc, const char * argv[]) {
 
         }
 
-        dot = new long int * [int(resolution/partsnum)];
-        cout << "size of dor is " << int(resolution/partsnum) << endl;
+        dot = new long int * [resolution];
+        for(long unsigned int i=0; i< resolution; i++){
+            dot[i] = new long int [resolution];
+        }
         for (int i=0; i<partsnum; i++) {
             thread_distribution[i] = int(((i+1)*resolution)/(partsnum));
             thread_spoints[i] = syc - vsize/2 + (i*vsize)/partsnum;
+
         }
-        
-
-
-        
-
         for (int i =0; i<threadnum; i++) {
             pthread_create(&thread[i], NULL, distributed_calc, (void *) i);
         }
-        
+        //time_t t = time(NULL);
+        double t = get_wall_time();
+        cout << "waiting for other threads" << endl;
         for (int i=0; i<threadnum; i++) {
             pthread_join(thread[i],NULL);
         }
-        cout << "All threads finished" << endl;
+
+        t = get_wall_time() - t;
+        cout << "All threads finished in " << t << " seconds" << endl;
         cout << floc;
-        
-        
-        
 
 
+        FILE *fp = fopen(floc.c_str(), "wb");
+        (void) fprintf(fp, "P6\n%d %d\n255\n", resolution, resolution);
+
+        for (long unsigned int i = 0; i < resolution; i++)
+        {
+            for (long unsigned int j = 0; j < resolution; j++)
+            {
+                static unsigned char color[3];
+                rcol = rcolor(dot[i][j]);
+                color[0] = rcol[0];
+                color[1] = rcol[1];
+                color[2] = rcol[2];
+                //255*cos((((dot[i][j]*1.0)/50)*((dot[i][j]*1.0)/50))*(3.14/2))
+                (void) fwrite(color, 1, 3, fp);
+            }
+            if (i == resolution - 1) {
+                cout << endl << "Finished" << endl;
+            }
+        }
+        (void) fclose(fp);
+
+
+        for( long int i=0; i< resolution; i++) {
+            delete [] dot[i];
+        }
         delete [] dot;
-        
         input = "u";
-        if(oneshot){
-            input = "exit";
+        if (oneshot){
+        break;
         }
     }
 }
 
 void *distributed_calc (void * arg) {
-    FILE *fp = fopen(floc.c_str(), "wb");
-    (void) fprintf(fp, "P6\n%d %d\n255\n", resolution, resolution);
     long double* coord;
-    unsigned int* rcol;
     long unsigned int spoint;
     int tnum = 0;
     choose_sector:
@@ -252,16 +274,13 @@ void *distributed_calc (void * arg) {
     }
 
 
-    for(long unsigned int i=spoint; i<thread_distribution[tnum]; i++){
-        dot[i-spoint] = new long int [resolution];
-    }
-    
+
     for (long unsigned int i=spoint; i<thread_distribution[tnum]; i++){
 
         for (long unsigned int j=0; j<resolution; j++){
 
 
-            dot[i-spoint][j] = check_iterations(coord, depth);
+            dot[i][j] = check_iterations(coord, depth);
 
 
             coord[0] += vsize/resolution;
@@ -276,45 +295,9 @@ void *distributed_calc (void * arg) {
 
 
     }
-    
-    for (long unsigned int i=spoint; i<thread_distribution[tnum]; i++)
-    {
-        for (long unsigned int j = 0; j < resolution; j++)
-        {
-            static unsigned char color[3];
-            if(dot[i-spoint][j]==-1){
-                dot[i-spoint][j]=depth-1;
-            }
-            rcol = rcolor(dot[i-spoint][j]);
-            /*
-             if(dot[i][j] == -1) {
-             rcol[0] = 0;
-             rcol[1] = 0;
-             rcol[2] = 0;
-             } else {
-             rcol[0] = 255;
-             rcol[1] = 255;
-             rcol[2] = 255;
-             }
-             */
-            color[0] = rcol[0];
-            color[1] = rcol[1];
-            color[2] = rcol[2];
-            //255*cos((((dot[i][j]*1.0)/50)*((dot[i][j]*1.0)/50))*(3.14/2))
-            (void) fwrite(color, 1, 3, fp);
-            delete [] rcol;
-        }
-        delete [] dot[i-spoint];
-        if (i == resolution - 1) {
-            cout << endl << "Finished" << endl;
-        }
-    }
- 
     delete [] coord;
     goto choose_sector;
     finish:
-    
-    (void) fclose(fp);
     pthread_mutex_unlock(&mut);
 }
 
@@ -370,57 +353,27 @@ long int check_iterations (long double* c, long int depth) {
 }
 
 unsigned int* rcolor (long unsigned int j) {
-    int cnum = 2;
+    int cnum = 3;
+    long unsigned int res = depth;
     j = j % res;
     unsigned int** r = new unsigned int* [cnum];
 
     for (int i=0; i<cnum; i++){
         r[i] = new unsigned int [3];
     }
-    /*
-    r[1][0]=0;
-    r[1][1]=0;
-    r[1][2]=0;
-    
-    r[0][0]=255;
-    r[0][1]=255;
-    r[0][2]=255;
-    */
-    
     r[0][0] = 255;
-    r[0][1] = 0;
+    r[0][1] = 255;
     r[0][2] = 0;
-    
+
     r[1][0] = 0;
     r[1][1] = 0;
     r[1][2] = 255;
-    /*
-    r[1][0] = 255;
-    r[1][1] = 127;
-    r[1][2] = 0;
-    */
-     /*
-    r[2][0] = 255;
-    r[2][1] = 255;
-    r[2][2] = 0;
-    
-    r[3][0] = 0;
-    r[3][1] = 255;
-    r[3][2] = 0;
-    
-    r[4][0] = 0;
-    r[4][1] = 0;
-    r[4][2] = 255;
 
-    r[5][0] = 75;
-    r[5][1] = 0;
-    r[5][2] = 130;
-    
-    r[6][0] = 139;
-    r[6][1] = 0;
-    r[6][2] = 255;
-    */
-     
+    r[2][0] = 0;
+    r[2][1] = 0;
+    r[2][2] = 0;
+
+
     long unsigned int* distrib = new long unsigned int [cnum];
     for (int i=1; i<cnum-1; i++) {
         distrib[i] = int(i*res/(cnum-1));
@@ -438,20 +391,8 @@ unsigned int* rcolor (long unsigned int j) {
             }
         }
     }
-    
     for(int i=0; i<3; i++) {
-        rtrn[i] = int( (r[pl][i]*(j-distrib[pl])/(distrib[pl+1]-distrib[pl])) + (r[pl+1][i]*(distrib[pl+1] - j)/(distrib[pl+1]-distrib[pl])) );
+        rtrn[i] = int( (r[pl][i]*(1-(j-distrib[pl]))/(distrib[pl+1]-distrib[pl])) + (r[pl+1][i]*((distrib[pl+1]-j))/(distrib[pl+1]-distrib[pl])) );
     }
-    
-    /*
-	for(int i=0; i<3; i++) {
-        rtrn[i] = int( (r[pl][i]*(distrib[pl+1] - j)/(distrib[pl+1]-distrib[pl])) + (r[pl+1][i]*(j-distrib[pl])/(distrib[pl+1]-distrib[pl])) );
-    }
-	*/
-    for (int i=0; i<cnum; i++) {
-        delete [] r[i];
-    }
-    delete [] distrib;
-    delete [] r;
     return rtrn;
 }
